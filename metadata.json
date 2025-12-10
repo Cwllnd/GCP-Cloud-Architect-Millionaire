@@ -1,0 +1,5 @@
+{
+  "name": "GCP Cloud Architect Millionaire",
+  "description": "A gamified exam preparation app for the Google Professional Cloud Architect certification, featuring a Millionaire-style money ladder, lifelines, and exam-accurate questions.",
+  "requestFramePermissions": []
+}
