@@ -1,7 +1,7 @@
 import { Question } from '../types';
 
 export const questions: Question[] = [
-  // Tier 1 (Easy) - Domain 1
+  // Tier 1 (Easy) - Domain 1 (Total: 6)
   {
     id: "q1",
     text: "A startup is migrating a monolithic e-commerce application to Google Cloud. The application has variable traffic with peaks during sales events. Leadership wants to reduce operational overhead while maintaining automatic scaling. Which GCP compute services provide automatic scaling and minimal operations? (Choose 2)",
@@ -72,8 +72,22 @@ export const questions: Question[] = [
     domain: "Designing and Planning",
     explanation: "Budget alerts proactively warn at configured thresholds via email or Pub/Sub."
   },
+  {
+    id: "q1_extra",
+    text: "You need to store objects that are accessed once a month for reporting. Availability is critical, but cost should be minimized. Which Storage class is best?",
+    options: [
+      { id: "a", label: "A", text: "Standard Storage" },
+      { id: "b", label: "B", text: "Nearline Storage" },
+      { id: "c", label: "C", text: "Coldline Storage" },
+      { id: "d", label: "D", text: "Archive Storage" }
+    ],
+    correctAnswerId: "b",
+    difficulty: 1,
+    domain: "Designing and Planning",
+    explanation: "Nearline is optimized for data accessed less than once a month. Coldline is for once a quarter."
+  },
 
-  // Tier 2 (Medium) - Domain 2 & 3
+  // Tier 2 (Medium) - Domain 2 & 3 (Total: 7)
   {
     id: "q6",
     text: "A mobile game needs near-continuous availability, low latency globally, and quick scaling. The backend exposes HTTP REST APIs. How should you design the backend?",
@@ -146,8 +160,6 @@ export const questions: Question[] = [
     domain: "Managing and Provisioning",
     explanation: "Declarative lifecycle rules handle time-based transitions natively."
   },
-
-  // Tier 3 (Hard) - Security & SRE
   {
     id: "q14",
     text: "A company behind a Global HTTPS Load Balancer needs defense against DDoS attacks. Which service should they implement?",
@@ -162,6 +174,22 @@ export const questions: Question[] = [
     domain: "Security and Compliance",
     explanation: "Cloud Armor provides DDoS protection, WAF rules, and bot management at Google's network edge."
   },
+  {
+    id: "q2_extra",
+    text: "You are designing a stateless microservice that requires rapid scaling (up to 1000 instances) and processes asynchronous tasks from Pub/Sub. Which compute option is most cost-effective and efficient?",
+    options: [
+      { id: "a", label: "A", text: "Google Kubernetes Engine" },
+      { id: "b", label: "B", text: "Cloud Run" },
+      { id: "c", label: "C", text: "Compute Engine" },
+      { id: "d", label: "D", text: "App Engine Flexible" }
+    ],
+    correctAnswerId: "b",
+    difficulty: 3,
+    domain: "Designing and Planning",
+    explanation: "Cloud Run scales to zero and handles rapid burst scaling for stateless containers perfectly, often more cheaply than GKE for this use case."
+  },
+
+  // Tier 3 (Hard) - Security & SRE (Total: 5)
   {
     id: "q17",
     text: "MountKirk Games uses GKE and needs secure, standards-based access to GCP APIs without vendor lock-in. Which solution do you recommend?",
@@ -217,5 +245,19 @@ export const questions: Question[] = [
     difficulty: 5,
     domain: "Security and Compliance",
     explanation: "Not all GCP services are HIPAA-compliant. A BAA is legally required for handling PHI."
+  },
+  {
+    id: "q3_extra",
+    text: "You need to restrict a specific GCP project so it can only communicate with APIs in North America. You also need to prevent data exfiltration to external storage buckets. What should you use?",
+    options: [
+      { id: "a", label: "A", text: "VPC Firewall Rules" },
+      { id: "b", label: "B", text: "VPC Service Controls" },
+      { id: "c", label: "C", text: "Cloud Armor" },
+      { id: "d", label: "D", text: "IAM Conditions" }
+    ],
+    correctAnswerId: "b",
+    difficulty: 5,
+    domain: "Security and Compliance",
+    explanation: "VPC Service Controls allow you to define a service perimeter to control data egress and restrict API access locations."
   }
 ];

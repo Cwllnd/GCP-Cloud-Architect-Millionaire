@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { questions } from '../data/questions';
+import { questions as masterQuestionList } from '../data/questions';
 import { GameState, Question, MoneyLevel } from '../types';
 
 interface GameStore extends GameState {
@@ -12,6 +12,7 @@ interface GameStore extends GameState {
   revealAnswer: () => void;
   advanceQuestion: () => void;
   walkAway: () => void;
+  togglePause: () => void;
   useFiftyFifty: () => void;
   usePhoneAFriend: () => void;
   useAskAudience: () => void;
@@ -37,6 +38,29 @@ const MONEY_LADDER: MoneyLevel[] = [
   { level: 15, amount: 1000000, isSafeHaven: true },
 ];
 
+// Helper to shuffle array
+function shuffleArray<T>(array: T[]): T[] {
+    return [...array].sort(() => Math.random() - 0.5);
+}
+
+// Logic to generate a fresh game of 15 questions
+function generateGameQuestions(): Question[] {
+  // Pool logic:
+  // Levels 1-5 (Easy): Difficulty 1
+  // Levels 6-10 (Medium): Difficulty 2 & 3
+  // Levels 11-15 (Hard): Difficulty 4 & 5
+  
+  const diff1 = masterQuestionList.filter(q => q.difficulty === 1);
+  const diff23 = masterQuestionList.filter(q => q.difficulty === 2 || q.difficulty === 3);
+  const diff45 = masterQuestionList.filter(q => q.difficulty === 4 || q.difficulty === 5);
+
+  const tier1 = shuffleArray(diff1).slice(0, 5);
+  const tier2 = shuffleArray(diff23).slice(0, 5);
+  const tier3 = shuffleArray(diff45).slice(0, 5);
+
+  return [...tier1, ...tier2, ...tier3];
+}
+
 const initialState: GameState = {
   currentQuestionIndex: 0,
   score: 0,
@@ -44,6 +68,7 @@ const initialState: GameState = {
   safeHavenAmount: 0,
   lifelines: { fiftyFifty: false, phone: false, audience: false },
   phase: 'intro',
+  isPaused: false,
   selectedAnswers: [],
   hiddenAnswers: [],
   audienceStats: null,
@@ -52,14 +77,20 @@ const initialState: GameState = {
 
 export const useGameStore = create<GameStore>((set, get) => ({
   ...initialState,
-  questions: questions,
+  questions: [], // Will be set on start
   moneyLevels: MONEY_LADDER,
 
-  startGame: () => set({ ...initialState, phase: 'playing' }),
+  startGame: () => set({ 
+      ...initialState, 
+      questions: generateGameQuestions(),
+      phase: 'playing' 
+  }),
+
+  togglePause: () => set(state => ({ isPaused: !state.isPaused })),
 
   selectAnswer: (optionId) => {
-    const { phase, selectedAnswers, currentQuestionIndex, questions } = get();
-    if (phase !== 'playing') return;
+    const { phase, selectedAnswers, currentQuestionIndex, questions, isPaused } = get();
+    if (phase !== 'playing' || isPaused) return;
 
     const currentQ = questions[currentQuestionIndex];
     const isMulti = Array.isArray(currentQ.correctAnswerId);
@@ -79,7 +110,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   lockAnswer: () => {
-     set({ phase: 'locked' });
+     const { isPaused } = get();
+     if(!isPaused) set({ phase: 'locked' });
   },
 
   revealAnswer: () => {
@@ -138,8 +170,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   useFiftyFifty: () => {
-    const { lifelines, questions, currentQuestionIndex, hiddenAnswers } = get();
-    if (lifelines.fiftyFifty || hiddenAnswers.length > 0) return;
+    const { lifelines, questions, currentQuestionIndex, hiddenAnswers, isPaused } = get();
+    if (lifelines.fiftyFifty || hiddenAnswers.length > 0 || isPaused) return;
 
     const currentQ = questions[currentQuestionIndex];
     // Simple logic for single choice mostly, but handles simple array too
@@ -160,8 +192,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   usePhoneAFriend: () => {
-    const { lifelines, questions, currentQuestionIndex } = get();
-    if (lifelines.phone) return;
+    const { lifelines, questions, currentQuestionIndex, isPaused } = get();
+    if (lifelines.phone || isPaused) return;
 
     const currentQ = questions[currentQuestionIndex];
     const correctLabel = Array.isArray(currentQ.correctAnswerId) 
@@ -177,8 +209,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   useAskAudience: () => {
-    const { lifelines, questions, currentQuestionIndex } = get();
-    if (lifelines.audience) return;
+    const { lifelines, questions, currentQuestionIndex, isPaused } = get();
+    if (lifelines.audience || isPaused) return;
 
     const currentQ = questions[currentQuestionIndex];
     const correctIds = Array.isArray(currentQ.correctAnswerId) ? currentQ.correctAnswerId : [currentQ.correctAnswerId];
@@ -217,5 +249,5 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   setGameOver: (won) => set({ phase: won ? 'won' : 'lost' }),
-  resetGame: () => set({ ...initialState, questions: questions }) // Resets everything
+  resetGame: () => set({ ...initialState, questions: generateGameQuestions() }) 
 }));

@@ -33,6 +33,7 @@ export interface GameState {
     audience: boolean;
   };
   phase: GamePhase;
+  isPaused: boolean; // New pause state
   selectedAnswers: string[]; // Array to support multi-select
   hiddenAnswers: string[]; // For 50:50
   audienceStats: Record<string, number> | null;

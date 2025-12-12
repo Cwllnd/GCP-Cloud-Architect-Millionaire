@@ -8,18 +8,14 @@ import { GameTimer } from './components/Game/Timer';
 import { Confetti } from './components/Game/Confetti';
 import useSound from 'use-sound';
 
-// Placeholder sounds (You would typically put real mp3 files in public/sounds)
-const SOUNDS = {
-  correct: 'https://actions.google.com/sounds/v1/cartoon/clank_car_crash.ogg', // Just for example, replace with real assets
-  wrong: 'https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg',
-};
-
 function App() {
   const store = useGameStore();
   const { 
     phase, 
+    isPaused,
     startGame, 
     resetGame, 
+    togglePause,
     questions, 
     currentQuestionIndex, 
     selectAnswer, 
@@ -34,18 +30,16 @@ function App() {
     winnings
   } = store;
 
+  // Sound placeholders (kept null for now to avoid load errors in this env)
+  // const [playCorrect] = useSound('/sounds/correct.mp3'); 
+
   const currentQ = questions[currentQuestionIndex];
   
   // Timer duration based on difficulty
   const getDuration = () => {
-      if (currentQ.difficulty <= 1) return 15;
-      if (currentQ.difficulty <= 3) return 30;
-      return 45;
+      // User requested 120 seconds flat duration
+      return 120;
   };
-
-  // Sound placeholders
-  // In a real app, use local files. Using null here to prevent errors if files missing.
-  // const [playCorrect] = useSound('/sounds/correct.mp3'); 
 
   // Effect for Phase Transitions (Simulate TV Drama)
   useEffect(() => {
@@ -113,7 +107,7 @@ function App() {
             </p>
           </div>
 
-          {phase === 'lost' && (
+          {phase === 'lost' && currentQ && (
               <div className="bg-slate-900 p-4 rounded text-left mb-6">
                  <p className="text-red-400 font-bold mb-1">Correct Answer:</p>
                  <p className="text-white mb-4">
@@ -137,13 +131,29 @@ function App() {
     );
   }
 
+  // Safety check if questions aren't loaded yet
+  if (!currentQ) return null;
+
   const isMultiSelect = Array.isArray(currentQ.correctAnswerId);
   const canLock = selectedAnswers.length > 0 && (isMultiSelect ? true : selectedAnswers.length === 1);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col md:flex-row overflow-hidden">
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col md:flex-row overflow-hidden relative">
       
-      {/* Sidebar / Ladder (Hidden on mobile initially, maybe show via toggle, but for now kept simple) */}
+      {/* Pause Overlay */}
+      {isPaused && (
+        <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center">
+            <h2 className="text-4xl font-bold text-white mb-8 tracking-widest">PAUSED</h2>
+            <button 
+                onClick={togglePause}
+                className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 px-12 rounded-full text-xl shadow-lg hover:scale-105 transition"
+            >
+                RESUME
+            </button>
+        </div>
+      )}
+
+      {/* Sidebar / Ladder */}
       <div className="hidden md:block h-screen sticky top-0 z-10">
         <MoneyLadder />
       </div>
@@ -156,10 +166,21 @@ function App() {
             <span className="text-slate-400 text-sm">Q{currentQuestionIndex + 1}/15</span>
         </div>
 
-        <div className="flex-1 max-w-4xl mx-auto w-full p-4 flex flex-col justify-center">
+        <div className="flex-1 max-w-4xl mx-auto w-full p-4 flex flex-col justify-center relative">
             
-            <div className="mb-6">
-                <GameTimer duration={getDuration()} />
+            {/* Top Bar with Timer and Pause */}
+            <div className="flex justify-center items-center mb-6 relative">
+                 <GameTimer duration={getDuration()} />
+                 
+                 <button 
+                    onClick={togglePause}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-white border border-slate-700 rounded-lg hover:bg-slate-800 transition"
+                    title="Pause Game"
+                 >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
+                    </svg>
+                 </button>
             </div>
 
             <Lifelines />
