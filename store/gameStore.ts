@@ -1,15 +1,19 @@
 import { create } from 'zustand';
-import { questions as masterQuestionList } from '../data/questions';
-import { GameState, Question, MoneyLevel } from '../types';
+import Papa from 'papaparse';
+import { GameState, Question, MoneyLevel, Option } from '../types';
 
 interface GameStore extends GameState {
-  questions: Question[];
+  masterQuestions: Question[]; // All questions loaded from CSV
+  questions: Question[]; // Current game pool
   moneyLevels: MoneyLevel[];
   
+  loadQuestions: () => Promise<void>;
   startGame: () => void;
   selectAnswer: (optionId: string) => void;
   lockAnswer: () => void;
   revealAnswer: () => void;
+  goToFeedback: () => void; // Transition to feedback
+  handleFeedbackContinue: () => void; // Decision point after feedback
   advanceQuestion: () => void;
   walkAway: () => void;
   togglePause: () => void;
@@ -38,21 +42,15 @@ const MONEY_LADDER: MoneyLevel[] = [
   { level: 15, amount: 1000000, isSafeHaven: true },
 ];
 
-// Helper to shuffle array
 function shuffleArray<T>(array: T[]): T[] {
     return [...array].sort(() => Math.random() - 0.5);
 }
 
-// Logic to generate a fresh game of 15 questions
-function generateGameQuestions(): Question[] {
-  // Pool logic:
-  // Levels 1-5 (Easy): Difficulty 1
-  // Levels 6-10 (Medium): Difficulty 2 & 3
-  // Levels 11-15 (Hard): Difficulty 4 & 5
-  
-  const diff1 = masterQuestionList.filter(q => q.difficulty === 1);
-  const diff23 = masterQuestionList.filter(q => q.difficulty === 2 || q.difficulty === 3);
-  const diff45 = masterQuestionList.filter(q => q.difficulty === 4 || q.difficulty === 5);
+// Logic to generate a fresh game of 15 questions from master list
+function generateGameQuestions(masterList: Question[]): Question[] {
+  const diff1 = masterList.filter(q => q.difficulty === 1);
+  const diff23 = masterList.filter(q => q.difficulty === 2 || q.difficulty === 3);
+  const diff45 = masterList.filter(q => q.difficulty === 4 || q.difficulty === 5);
 
   const tier1 = shuffleArray(diff1).slice(0, 5);
   const tier2 = shuffleArray(diff23).slice(0, 5);
@@ -72,19 +70,70 @@ const initialState: GameState = {
   selectedAnswers: [],
   hiddenAnswers: [],
   audienceStats: null,
-  phoneHint: null
+  phoneHint: null,
+  lastAnswerCorrect: null
 };
 
 export const useGameStore = create<GameStore>((set, get) => ({
   ...initialState,
-  questions: [], // Will be set on start
+  masterQuestions: [],
+  questions: [],
   moneyLevels: MONEY_LADDER,
 
-  startGame: () => set({ 
+  loadQuestions: async () => {
+    set({ phase: 'loading' });
+    try {
+      const response = await fetch('/questions.csv');
+      const csvText = await response.text();
+      
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          const parsedQuestions: Question[] = results.data.map((row: any) => {
+            // Build options array dynamically
+            const options: Option[] = [];
+            if (row.option_a) options.push({ id: 'a', label: 'A', text: row.option_a });
+            if (row.option_b) options.push({ id: 'b', label: 'B', text: row.option_b });
+            if (row.option_c) options.push({ id: 'c', label: 'C', text: row.option_c });
+            if (row.option_d) options.push({ id: 'd', label: 'D', text: row.option_d });
+            if (row.option_e) options.push({ id: 'e', label: 'E', text: row.option_e });
+            if (row.option_f) options.push({ id: 'f', label: 'F', text: row.option_f });
+
+            // Handle correct answer (could be "a" or "a,b")
+            const correctRaw = row.correct_answer || '';
+            const correctAnswerId = correctRaw.includes(',') 
+                ? correctRaw.split(',').map((s: string) => s.trim()) 
+                : correctRaw.trim();
+
+            return {
+              id: row.id,
+              difficulty: parseInt(row.difficulty, 10) as 1|2|3|4|5,
+              domain: row.domain,
+              text: row.text,
+              options,
+              correctAnswerId,
+              explanation: row.explanation
+            };
+          });
+
+          set({ masterQuestions: parsedQuestions, phase: 'intro' });
+        }
+      });
+    } catch (error) {
+      console.error("Failed to load questions", error);
+    }
+  },
+
+  startGame: () => {
+    const { masterQuestions } = get();
+    if (masterQuestions.length === 0) return;
+    set({ 
       ...initialState, 
-      questions: generateGameQuestions(),
+      questions: generateGameQuestions(masterQuestions),
       phase: 'playing' 
-  }),
+    });
+  },
 
   togglePause: () => set(state => ({ isPaused: !state.isPaused })),
 
@@ -115,7 +164,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   revealAnswer: () => {
-    const { questions, currentQuestionIndex, selectedAnswers, safeHavenAmount } = get();
+    const { questions, currentQuestionIndex, selectedAnswers } = get();
     const currentQ = questions[currentQuestionIndex];
     
     let isCorrect = false;
@@ -126,30 +175,44 @@ export const useGameStore = create<GameStore>((set, get) => ({
       isCorrect = selectedAnswers[0] === currentQ.correctAnswerId;
     }
 
-    if (isCorrect) {
-      set({ phase: 'revealed' });
-    } else {
-      set({ phase: 'lost', winnings: safeHavenAmount });
-    }
+    set({ 
+      phase: 'revealed', 
+      lastAnswerCorrect: isCorrect 
+    });
+  },
+
+  goToFeedback: () => set({ phase: 'feedback' }),
+
+  handleFeedbackContinue: () => {
+      const { lastAnswerCorrect, safeHavenAmount, questions, currentQuestionIndex, winnings } = get();
+      
+      if (lastAnswerCorrect) {
+          // Correct! Move to next or win
+          // Calculate winnings for the *just completed* question
+          // We need to look ahead.
+          // Actually, 'advanceQuestion' handles the index increment.
+          // But if we just finished the last question?
+          if (currentQuestionIndex >= 14) {
+             set({ phase: 'won', winnings: 1000000, safeHavenAmount: 1000000 });
+          } else {
+             // We need to update winnings BEFORE advancing? 
+             // Currently advanceQuestion updates winnings based on the level we just finished.
+             get().advanceQuestion();
+          }
+      } else {
+          // Wrong! Game over.
+          set({ phase: 'lost', winnings: safeHavenAmount });
+      }
   },
 
   advanceQuestion: () => {
     const { currentQuestionIndex, moneyLevels } = get();
     const currentLevel = moneyLevels[currentQuestionIndex];
     
-    // Update winnings and safe haven
+    // Update safe haven if we just passed one
     let newSafeHaven = get().safeHavenAmount;
     if (currentLevel.isSafeHaven) {
       newSafeHaven = currentLevel.amount;
-    }
-
-    if (currentQuestionIndex >= 14) {
-      set({ 
-        phase: 'won', 
-        winnings: 1000000, 
-        safeHavenAmount: 1000000 
-      });
-      return;
     }
 
     set({
@@ -166,7 +229,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   walkAway: () => {
     const { winnings } = get();
-    set({ phase: 'lost', safeHavenAmount: winnings }); // 'lost' triggers Game Over screen, but we show current winnings
+    set({ phase: 'lost', safeHavenAmount: winnings });
   },
 
   useFiftyFifty: () => {
@@ -174,14 +237,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (lifelines.fiftyFifty || hiddenAnswers.length > 0 || isPaused) return;
 
     const currentQ = questions[currentQuestionIndex];
-    // Simple logic for single choice mostly, but handles simple array too
     const correctIds = Array.isArray(currentQ.correctAnswerId) ? currentQ.correctAnswerId : [currentQ.correctAnswerId];
     
     const wrongOptions = currentQ.options
       .filter(o => !correctIds.includes(o.id))
       .map(o => o.id);
 
-    // Shuffle and pick 2 to hide (if possible)
     const shuffledWrong = wrongOptions.sort(() => 0.5 - Math.random());
     const toHide = shuffledWrong.slice(0, 2);
 
@@ -200,7 +261,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       ? "the multiple correct options" 
       : currentQ.options.find(o => o.id === currentQ.correctAnswerId)?.label;
 
-    const confidence = Math.max(40, 95 - (currentQ.difficulty * 10)); // Harder qs = less confidence
+    const confidence = Math.max(40, 95 - (currentQ.difficulty * 10));
     
     set({
       lifelines: { ...lifelines, phone: true },
@@ -218,19 +279,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const stats: Record<string, number> = {};
     let remainingPercent = 100;
     
-    // Logic: Give correct answer a boost based on ease, distribute rest randomly
     const correctBoost = Math.max(20, 80 - (currentQ.difficulty * 15));
     
     currentQ.options.forEach(opt => {
       stats[opt.id] = 0;
     });
 
-    // Assign to correct
     const mainCorrect = correctIds[0];
     stats[mainCorrect] = correctBoost;
     remainingPercent -= correctBoost;
 
-    // Distribute rest
     const otherOptions = currentQ.options.filter(o => o.id !== mainCorrect);
     otherOptions.forEach((opt, idx) => {
         if (idx === otherOptions.length - 1) {
@@ -249,5 +307,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   setGameOver: (won) => set({ phase: won ? 'won' : 'lost' }),
-  resetGame: () => set({ ...initialState, questions: generateGameQuestions() }) 
+  resetGame: () => {
+      const { masterQuestions } = get();
+      set({ ...initialState, masterQuestions, phase: 'intro', questions: generateGameQuestions(masterQuestions) });
+  } 
 }));

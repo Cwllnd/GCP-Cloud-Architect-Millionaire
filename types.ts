@@ -20,7 +20,7 @@ export interface MoneyLevel {
   isSafeHaven: boolean;
 }
 
-export type GamePhase = 'intro' | 'playing' | 'locked' | 'revealed' | 'won' | 'lost';
+export type GamePhase = 'intro' | 'loading' | 'playing' | 'locked' | 'revealed' | 'feedback' | 'won' | 'lost';
 
 export interface GameState {
   currentQuestionIndex: number;
@@ -33,9 +33,10 @@ export interface GameState {
     audience: boolean;
   };
   phase: GamePhase;
-  isPaused: boolean; // New pause state
-  selectedAnswers: string[]; // Array to support multi-select
-  hiddenAnswers: string[]; // For 50:50
+  isPaused: boolean;
+  selectedAnswers: string[]; 
+  hiddenAnswers: string[];
   audienceStats: Record<string, number> | null;
   phoneHint: string | null;
+  lastAnswerCorrect: boolean | null; // For the feedback screen
 }

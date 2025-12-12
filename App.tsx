@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useGameStore } from './store/gameStore';
 import { QuestionDisplay } from './components/Game/Question';
 import { AnswerOption } from './components/Game/AnswerOption';
@@ -6,13 +6,14 @@ import { MoneyLadder } from './components/Game/MoneyLadder';
 import { Lifelines } from './components/Game/Lifelines';
 import { GameTimer } from './components/Game/Timer';
 import { Confetti } from './components/Game/Confetti';
-import useSound from 'use-sound';
+import { Feedback } from './components/Game/Feedback';
 
 function App() {
   const store = useGameStore();
   const { 
     phase, 
     isPaused,
+    loadQuestions,
     startGame, 
     resetGame, 
     togglePause,
@@ -22,6 +23,7 @@ function App() {
     selectedAnswers, 
     lockAnswer, 
     revealAnswer, 
+    goToFeedback,
     advanceQuestion,
     hiddenAnswers,
     audienceStats,
@@ -30,8 +32,10 @@ function App() {
     winnings
   } = store;
 
-  // Sound placeholders (kept null for now to avoid load errors in this env)
-  // const [playCorrect] = useSound('/sounds/correct.mp3'); 
+  // Load CSV on mount
+  useEffect(() => {
+    loadQuestions();
+  }, [loadQuestions]);
 
   const currentQ = questions[currentQuestionIndex];
   
@@ -51,15 +55,23 @@ function App() {
         revealAnswer();
       }, 2000);
     } else if (phase === 'revealed') {
-      // Show result for 3 seconds, then move on
+      // Show result for 3 seconds, then show feedback
       timeout = setTimeout(() => {
-        advanceQuestion();
+        goToFeedback();
       }, 3000);
     }
 
     return () => clearTimeout(timeout);
-  }, [phase, revealAnswer, advanceQuestion]);
+  }, [phase, revealAnswer, goToFeedback]);
 
+  if (phase === 'loading') {
+      return (
+          <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mr-4"></div>
+              <span className="text-xl">Loading Question Database...</span>
+          </div>
+      );
+  }
 
   if (phase === 'intro') {
     return (
@@ -107,19 +119,6 @@ function App() {
             </p>
           </div>
 
-          {phase === 'lost' && currentQ && (
-              <div className="bg-slate-900 p-4 rounded text-left mb-6">
-                 <p className="text-red-400 font-bold mb-1">Correct Answer:</p>
-                 <p className="text-white mb-4">
-                     {Array.isArray(currentQ.correctAnswerId) ? "Multiple Options" : 
-                      currentQ.options.find(o => o.id === currentQ.correctAnswerId)?.text}
-                 </p>
-                 <p className="text-blue-300 text-sm italic border-t border-slate-700 pt-2">
-                     {currentQ.explanation}
-                 </p>
-              </div>
-          )}
-
           <button 
             onClick={resetGame}
             className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-lg transition"
@@ -136,10 +135,14 @@ function App() {
 
   const isMultiSelect = Array.isArray(currentQ.correctAnswerId);
   const canLock = selectedAnswers.length > 0 && (isMultiSelect ? true : selectedAnswers.length === 1);
+  const isRevealedPhase = phase === 'revealed' || phase === 'feedback';
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col md:flex-row overflow-hidden relative">
       
+      {/* Feedback Overlay */}
+      {phase === 'feedback' && <Feedback />}
+
       {/* Pause Overlay */}
       {isPaused && (
         <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center">
@@ -176,6 +179,7 @@ function App() {
                     onClick={togglePause}
                     className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-white border border-slate-700 rounded-lg hover:bg-slate-800 transition"
                     title="Pause Game"
+                    disabled={phase === 'feedback'}
                  >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
@@ -212,7 +216,7 @@ function App() {
                             isSelected={isSelected}
                             isCorrect={isCorrectId}
                             isWrong={isSelected && !isCorrectId}
-                            isRevealed={phase === 'revealed' || phase === 'lost'}
+                            isRevealed={isRevealedPhase}
                             isHidden={hiddenAnswers.includes(opt.id)}
                             onSelect={() => selectAnswer(opt.id)}
                             showPercent={audienceStats ? audienceStats[opt.id] : undefined}
