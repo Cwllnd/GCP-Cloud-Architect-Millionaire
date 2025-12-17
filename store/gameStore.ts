@@ -42,11 +42,18 @@ const MONEY_LADDER: MoneyLevel[] = [
   { level: 15, amount: 1000000, isSafeHaven: true },
 ];
 
+// Fisher-Yates shuffle for truly random distribution
 function shuffleArray<T>(array: T[]): T[] {
-    return [...array].sort(() => Math.random() - 0.5);
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
 }
 
 // Logic to generate a fresh game of 15 questions from master list
+// Each game run will have different questions in different order
 function generateGameQuestions(masterList: Question[]): Question[] {
   const diff1 = masterList.filter(q => q.difficulty === 1);
   const diff23 = masterList.filter(q => q.difficulty === 2 || q.difficulty === 3);
@@ -56,7 +63,14 @@ function generateGameQuestions(masterList: Question[]): Question[] {
   const tier2 = shuffleArray(diff23).slice(0, 5);
   const tier3 = shuffleArray(diff45).slice(0, 5);
 
-  return [...tier1, ...tier2, ...tier3];
+  // Combine tiers and shuffle answer options for each question
+  const selectedQuestions = [...tier1, ...tier2, ...tier3];
+  
+  // Randomize answer option order for each question
+  return selectedQuestions.map(q => ({
+    ...q,
+    options: shuffleArray(q.options)
+  }));
 }
 
 const initialState: GameState = {
