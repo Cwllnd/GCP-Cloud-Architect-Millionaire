@@ -2,7 +2,7 @@ import React from 'react';
 import { useGameStore } from '../../store/gameStore';
 
 export const MoneyLadder: React.FC = () => {
-  const { moneyLevels, currentQuestionIndex, winnings } = useGameStore();
+  const { moneyLevels, currentQuestionIndex, winnings, jumpToLevel } = useGameStore();
 
   // Reverse needed because ladder goes bottom-up visually
   const reversedLevels = [...moneyLevels].reverse();
@@ -29,7 +29,14 @@ export const MoneyLadder: React.FC = () => {
                 ${!isActive && !isPassed ? (isSafe ? 'text-white font-semibold' : 'text-slate-400') : ''}
               `}
             >
-              <span className={`text-xs ${isActive ? 'text-white' : 'text-orange-500'}`}>
+              <span
+                className={`text-xs ${isActive ? 'text-white' : 'text-orange-500'} cursor-default hover:text-white transition-colors`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  jumpToLevel(level.level - 1);
+                }}
+                title="Skip to Level"
+              >
                 {level.level}
               </span>
               <span className={isSafe ? 'text-yellow-200' : ''}>

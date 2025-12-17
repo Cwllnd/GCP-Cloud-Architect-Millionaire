@@ -23,6 +23,7 @@ interface GameStore extends GameState {
   setGameOver: (won: boolean) => void;
   resetGame: () => void;
   skipQuestion: () => void;
+  jumpToLevel: (levelIndex: number) => void;
 }
 
 const MONEY_LADDER: MoneyLevel[] = [
@@ -342,5 +343,33 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     // We need to call lockAnswer, but since we are inside the store, we can just call it from get()
     get().lockAnswer();
+  },
+
+  jumpToLevel: (levelIndex: number) => {
+    const { moneyLevels, questions } = get();
+    if (levelIndex < 0 || levelIndex >= questions.length) return;
+
+    // Calculate winnings based on previous level completed
+    const newWinnings = levelIndex > 0 ? moneyLevels[levelIndex - 1].amount : 0;
+
+    // Find highest safe haven achieved
+    let newSafeHaven = 0;
+    for (let i = 0; i < levelIndex; i++) {
+      if (moneyLevels[i].isSafeHaven) {
+        newSafeHaven = moneyLevels[i].amount;
+      }
+    }
+
+    set({
+      currentQuestionIndex: levelIndex,
+      phase: 'playing',
+      selectedAnswers: [],
+      hiddenAnswers: [],
+      audienceStats: null,
+      phoneHint: null,
+      winnings: newWinnings,
+      safeHavenAmount: newSafeHaven,
+      isPaused: false
+    });
   }
 }));
