@@ -3,6 +3,7 @@ import Papa from 'papaparse';
 import { GameState, Question, MoneyLevel, Option } from '../types';
 
 interface GameStore extends GameState {
+  isAdminUnlocked: boolean;
   masterQuestions: Question[]; // All questions loaded from CSV
   questions: Question[]; // Current game pool
   moneyLevels: MoneyLevel[];
@@ -24,6 +25,7 @@ interface GameStore extends GameState {
   resetGame: () => void;
   skipQuestion: () => void;
   jumpToLevel: (levelIndex: number) => void;
+  toggleAdminUnlock: () => void;
 }
 
 const MONEY_LADDER: MoneyLevel[] = [
@@ -87,7 +89,9 @@ const initialState: GameState = {
   hiddenAnswers: [],
   audienceStats: null,
   phoneHint: null,
-  lastAnswerCorrect: null
+  lastAnswerCorrect: null,
+  // @ts-ignore - explicitly allowed for store initialization
+  isAdminUnlocked: false
 };
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -95,6 +99,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   masterQuestions: [],
   questions: [],
   moneyLevels: MONEY_LADDER,
+  isAdminUnlocked: false,
 
   loadQuestions: async () => {
     set({ phase: 'loading' });
@@ -371,5 +376,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       safeHavenAmount: newSafeHaven,
       isPaused: false
     });
-  }
+  },
+
+  toggleAdminUnlock: () => set(state => ({ isAdminUnlocked: !state.isAdminUnlocked }))
 }));

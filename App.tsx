@@ -100,6 +100,15 @@ function App() {
             START EXAM
           </button>
         </div>
+
+        {/* Admin Lock Toggle */}
+        <button
+          onClick={store.toggleAdminUnlock}
+          className="absolute top-4 right-4 p-2 text-slate-600 hover:text-slate-400 transition-colors"
+          title={store.isAdminUnlocked ? "Lock Admin Controls" : "Unlock Admin Controls"}
+        >
+          {store.isAdminUnlocked ? "🔓" : "🔒"}
+        </button>
       </div>
     );
   }
@@ -176,16 +185,18 @@ function App() {
           <div className="flex justify-center items-center mb-6 relative">
             <GameTimer duration={getDuration()} />
 
-            <button
-              onClick={togglePause}
-              className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-white border border-slate-700 rounded-lg hover:bg-slate-800 transition"
-              title="Pause Game"
-              disabled={phase === 'feedback'}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
-              </svg>
-            </button>
+            {store.isAdminUnlocked && (
+              <button
+                onClick={togglePause}
+                className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-white border border-slate-700 rounded-lg hover:bg-slate-800 transition"
+                title="Pause Game"
+                disabled={phase === 'feedback'}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
+                </svg>
+              </button>
+            )}
           </div>
 
           <Lifelines />
@@ -236,13 +247,15 @@ function App() {
               Walk Away (${store.winnings.toLocaleString()})
             </button>
 
-            <button
-              onClick={skipQuestion}
-              disabled={phase !== 'playing'}
-              className="px-6 py-3 rounded-lg text-purple-400 border border-purple-500/30 hover:bg-purple-900/30 hover:text-purple-300 transition"
-            >
-              Skip Question ⏭️
-            </button>
+            {store.isAdminUnlocked && (
+              <button
+                onClick={skipQuestion}
+                disabled={phase !== 'playing'}
+                className="px-6 py-3 rounded-lg text-purple-400 border border-purple-500/30 hover:bg-purple-900/30 hover:text-purple-300 transition"
+              >
+                Skip Question ⏭️
+              </button>
+            )}
 
             <button
               onClick={lockAnswer}
